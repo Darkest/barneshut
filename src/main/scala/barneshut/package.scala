@@ -1,5 +1,4 @@
-import barneshut.conctrees._
-import common._
+
 
 package object barneshut {
 
@@ -62,13 +61,13 @@ package object barneshut {
     val centerY: Float = nw.centerY + nw.size / 2
     val size: Float = nw.size * 2
     val mass: Float = nw.mass + ne.mass + sw.mass + se.mass
-    val massX: Float = if (mass == 0) centerX else {
+    val total: Int = nw.total + ne.total + sw.total + se.total
+    val massX: Float = if (total == 0) centerX else {
       (nw.massX * nw.mass + ne.massX * ne.mass + sw.massX * sw.mass + se.massX * se.mass) / mass
     }
-    val massY: Float = if (mass == 0) centerX else {
+    val massY: Float = if (total == 0) centerY else {
       (nw.massY * nw.mass + ne.massY * ne.mass + sw.massY * sw.mass + se.massY * se.mass) / mass
     }
-    val total: Int = nw.total + ne.total + sw.total + se.total
 
     def insert(b: Body): Fork = {
       if (b.x <= centerX) {
@@ -185,17 +184,27 @@ package object barneshut {
   class SectorMatrix(val boundaries: Boundaries, val sectorPrecision: Int) {
     val sectorSize = boundaries.size / sectorPrecision
     val matrix = new Array[ConcBuffer[Body]](sectorPrecision * sectorPrecision)
-    for (i <- 0 until matrix.length) matrix(i) = new ConcBuffer
+    for (i <- matrix.indices) matrix(i) = new ConcBuffer
+
+    def toBounds[T: Ordering](n: T, min: T, max: T): T = {
+      val comparator = implicitly[Ordering[T]]
+      if (comparator.lt(n, min)) min else
+        if (comparator.gt(n, max)) max else n
+    }
 
     def +=(b: Body): SectorMatrix = {
-      ???
+      //val xShift = toBounds()
+      val xShift = toBounds(((b.x - boundaries.minX)/sectorSize).toInt, 0, SECTOR_PRECISION - 1)
+      val yShift = toBounds(((b.y - boundaries.minY)/sectorSize).toInt,0, SECTOR_PRECISION - 1)
+      matrix(yShift*SECTOR_PRECISION + xShift) += b
       this
     }
 
     def apply(x: Int, y: Int) = matrix(y * sectorPrecision + x)
 
     def combine(that: SectorMatrix): SectorMatrix = {
-      ???
+      for (i <- matrix.indices) matrix(i) = matrix(i).combine(that.matrix(i))
+      this
     }
 
     def toQuad(parallelism: Int): Quad = {
@@ -244,7 +253,7 @@ package object barneshut {
       val totalTime = /*measure*/ {
         val startTime = System.currentTimeMillis()
         res = body
-        (System.currentTimeMillis() - startTime)
+        System.currentTimeMillis() - startTime
       }
 
       timeMap.get(title) match {
@@ -252,7 +261,7 @@ package object barneshut {
         case None => timeMap(title) = (0.0, 0)
       }
 
-      println(s"$title: ${totalTime} ms; avg: ${timeMap(title)._1 / timeMap(title)._2}")
+      println(s"$title: $totalTime ms; avg: ${timeMap(title)._1 / timeMap(title)._2}")
       res
     }
 
